@@ -146,7 +146,7 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 	private Behavior<WalletGenericCommand> onReset(Wallet.Reset resetCommand){
 		Logger.log("Received Wallet.Reset");
 		
-		this.accountBalance = 10000;
+		this.accountBalance = Globals.initReadWrapperObj.walletBalance;
 		resetCommand.replyTo.tell(new Wallet.ResponseBalance(this.accountBalance));
 		
 		return this;
