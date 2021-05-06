@@ -23,6 +23,31 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 		this.accountBalance = balance;
 	}
 
+	public static Behavior<WalletGenericCommand> create(String custID, long balance) {
+//		Logger.log("In 'create' of a new wallet actor : wallet-" + custID);
+		return Behaviors.setup(context -> {
+			return new Wallet(context, custID, balance);
+		});
+	}
+	
+	@Override
+	public Receive<WalletGenericCommand> createReceive() {
+//		Logger.log("---------------Inside createReceive of Wallet--------------------");
+		return newReceiveBuilder()			
+			.onMessage(GetBalance.class, this::onGetBalance)
+			.onMessage(AddBalance.class, this::onAddBalance)
+			.onMessage(DeductBalance.class, this::onDeductBalance)
+			.onMessage(Reset.class, this::onReset)			
+			.onMessage(WalletGenericCommand.class, notUsed -> {
+				Logger.logErr("Shouldn't have received this generic command for wallet-" + this.custID);
+				return this;
+				})
+			.build();
+	}	
+	
+	//Messages ----------------------------------------------------------------
+	
+	//Receive 
 	public static class WalletGenericCommand {
 	}
 
@@ -32,8 +57,7 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 		public GetBalance(ActorRef<ResponseBalance> replyTo) {
 			super();
 			this.replyTo = replyTo;
-		}
-		
+		}		
 	}
 
 	public static class DeductBalance extends WalletGenericCommand {
@@ -65,6 +89,8 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 		}
 	}
 
+	
+	//Send
 	public static class ResponseBalance extends WalletGenericCommand {
 		long balance;
 
@@ -74,15 +100,16 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 		}
 		
 		public boolean equals(Object o) {
-		      if (this == o) return true;
-		      if (o == null || getClass() != o.getClass()) return false;
-		      
-		      ResponseBalance responseBalance = (ResponseBalance) o;	      
-		      return responseBalance.balance == this.balance;
-		    }
+	      if (this == o) return true;
+	      if (o == null || getClass() != o.getClass()) return false;
+	      
+	      ResponseBalance responseBalance = (ResponseBalance) o;	      
+	      return responseBalance.balance == this.balance;
+	    }
 	}
+	
+	//Message handlers ----------------------------------------------------------------
 
-	// Define message handlers here
 	private Behavior<WalletGenericCommand> onGetBalance(Wallet.GetBalance getBalanceCommand) {
 		Logger.log("Received Wallet.GetBalance and responding with balance : " + this.accountBalance);
 		getBalanceCommand.replyTo.tell(new ResponseBalance(this.accountBalance));
@@ -101,21 +128,27 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 		return this;
 	}
 	
-	
-	@Override
-	public Receive<WalletGenericCommand> createReceive() {
-		Logger.log("---------------Inside createReceive of Wallet--------------------");
-		return newReceiveBuilder()
-				.onMessage(WalletGenericCommand.class, notUsed -> {
-				Logger.logErr("Shouldn't have received this generic command for wallet-" + this.custID);
-				return this;
-				})
-				.onMessage(GetBalance.class, this::onGetBalance)
-				.build();
+	private Behavior<WalletGenericCommand> onDeductBalance(Wallet.DeductBalance deductBalanceCommand){
+		Logger.log("Received Wallet.DeductBalance to deduct balance : " + deductBalanceCommand.toDeduct);
+		
+		if(deductBalanceCommand.toDeduct > this.accountBalance) {
+			Logger.logErr("Insufficient balance!");
+			deductBalanceCommand.replyTo.tell(new Wallet.ResponseBalance(-1));
+		} else {
+			Logger.log("Balance deduction successful.");
+			this.accountBalance -= deductBalanceCommand.toDeduct;
+			deductBalanceCommand.replyTo.tell(new Wallet.ResponseBalance(this.accountBalance));
+		}
+		
+		return this;
 	}
-
-	public static Behavior<WalletGenericCommand> create(String custID, long balance) {
-		Logger.log("In 'create' of a new wallet actor : wallet-" + custID);
-		return Behaviors.setup(context -> {return new Wallet(context, custID, balance);});
+	
+	private Behavior<WalletGenericCommand> onReset(Wallet.Reset resetCommand){
+		Logger.log("Received Wallet.Reset");
+		
+		this.accountBalance = 10000;
+		resetCommand.replyTo.tell(new Wallet.ResponseBalance(this.accountBalance));
+		
+		return this;
 	}
 }
