@@ -38,7 +38,8 @@ public class InitFileReader {
 		}
 
 		for (String cabID : wrapperObj.cabIDList) {
-			System.out.println(cabID);
+//			System.out.println(cabID);
+			Logger.log("Cab : " + cabID);
 		}
 
 		// -----------------------------------------------------
@@ -52,7 +53,8 @@ public class InitFileReader {
 		}
 
 		for (String custID : wrapperObj.custIDList) {
-			System.out.println(custID);
+//			System.out.println(custID);
+			Logger.log("Customer : " + custID);
 		}
 
 		// -----------------------------------------------------

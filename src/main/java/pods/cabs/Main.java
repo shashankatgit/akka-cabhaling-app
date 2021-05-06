@@ -2,8 +2,10 @@ package pods.cabs;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Objects;
 
 import com.example.GreeterMain;
+import com.example.Greeter.Greeted;
 import com.example.GreeterMain.SayHello;
 
 import akka.actor.typed.ActorRef;
@@ -28,15 +30,29 @@ public class Main extends AbstractBehavior<Main.MainGenericCommand> {
 
 	public static final class MainGenericCommand {}
 	
+	public static final class StartedCommand {
+		boolean status;
+		
+		public StartedCommand(boolean status) {
+			this.status = status;
+		}		
+		
+		public boolean equals(Object o) {
+	      if (this == o) return true;
+	      if (o == null || getClass() != o.getClass()) return false;
+	      
+	      StartedCommand startedCommand = (StartedCommand) o;	      
+	      return startedCommand.status == this.status;
+	    }
+	}
 	
-    public static Behavior<MainGenericCommand> create() {
+    public static Behavior<MainGenericCommand> create(ActorRef<Main.StartedCommand> testProbe) {
     	Logger.log("Main actor being created");
     	
     	return Behaviors.setup(context -> {
     	
     	try {
-    		InitReadWrapper wrapperObj = new InitReadWrapper();
-    		
+    		InitReadWrapper wrapperObj = new InitReadWrapper();    		
 			InitFileReader.readInitFile(wrapperObj);
 			
 			long initWalletBalance = wrapperObj.walletBalance;
@@ -51,7 +67,9 @@ public class Main extends AbstractBehavior<Main.MainGenericCommand> {
 				Logger.log("Trying to spawn the actor wallet-"+custID+" with wallet balance: "+ initWalletBalance);
 				ActorRef<Wallet.WalletGenericCommand> walletActorRef = context.spawn(Wallet.create(custID, initWalletBalance), "wallet-"+custID);
 				Globals.wallets.put(custID, walletActorRef);
-			}
+			}		
+			
+			testProbe.tell(new Main.StartedCommand(true));
 			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block

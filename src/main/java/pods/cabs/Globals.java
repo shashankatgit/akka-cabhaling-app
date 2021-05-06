@@ -9,9 +9,9 @@ import pods.cabs.Main.MainGenericCommand;
 
 
 public class Globals {
-	static HashMap<String,ActorRef<Cab.CabGenericCommand>> cabs; //Cab Ids are keys
-	static HashMap<String,ActorRef<Wallet.WalletGenericCommand>> wallets;
-	
+	//final?
+	static HashMap<String,ActorRef<Cab.CabGenericCommand>> cabs;          //Cab Ids are keys
+	static HashMap<String,ActorRef<Wallet.WalletGenericCommand>> wallets; //Cust Ids are keys
 	static ArrayList<RideService> rideService;
 	
 	static {
