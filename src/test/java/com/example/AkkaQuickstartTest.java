@@ -3,7 +3,10 @@ package com.example;
 import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
 import akka.actor.testkit.typed.javadsl.TestProbe;
 import akka.actor.typed.ActorRef;
+import pods.cabs.Globals;
 import pods.cabs.Main;
+import pods.cabs.Wallet;
+import pods.cabs.utils.InitFileReader;
 
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -27,8 +30,14 @@ public class AkkaQuickstartTest {
     
     @Test
     public void testMainStarted() {
-		  TestProbe<Main.StartedCommand> testProbe = testKit.createTestProbe();
-		  ActorRef<Main.MainGenericCommand> underTest = testKit.spawn(Main.create(testProbe.getRef()), "main");
-		  testProbe.expectMessage(new Main.StartedCommand(true));
+		  TestProbe<Main.StartedCommand> mainTestProbe = testKit.createTestProbe();
+		  ActorRef<Main.MainGenericCommand> underTest = testKit.spawn(Main.create(mainTestProbe.getRef()), "main");
+		  mainTestProbe.expectMessage(new Main.StartedCommand(true));
+		  
+		  TestProbe<Wallet.ResponseBalance> walletTestProbe = testKit.createTestProbe();
+		  Globals.wallets.get("201").tell(new Wallet.GetBalance(walletTestProbe.getRef()));
+		  
+		  walletTestProbe.expectMessage(new Wallet.ResponseBalance(10000));
+		  
     }
 }

@@ -82,6 +82,7 @@ public class Main extends AbstractBehavior<Main.MainGenericCommand> {
 
 	@Override
 	public Receive<MainGenericCommand> createReceive() {
+		Logger.log("---------------Inside createReceive of Main--------------------");
 		return newReceiveBuilder()
 		        .onMessage(MainGenericCommand.class, notUsed -> {
 		        	Logger.logErr("Shouldn't have received this generic command for main actor");
