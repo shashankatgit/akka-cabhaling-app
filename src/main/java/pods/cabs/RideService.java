@@ -166,12 +166,13 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 	
 	private Behavior<RideServiceGenericCommand> onRequestRide(RideService.RequestRide requestRideCommand) {
 		Logger.log("Received RideService.RequestRide for (custId,srcLoc,destLoc) : (" + requestRideCommand.custId
-				+", "+requestRideCommand.sourceLoc + ", " + requestRideCommand.destinationLoc);
+				+", "+requestRideCommand.sourceLoc + ", " + requestRideCommand.destinationLoc + ")");
 		long rideId = Globals.rideIdSequence.incrementAndGet();
 		
 		ActorRef<FulfillRide.Command> fRideActorRef = getContext().spawn(FulfillRide.create(rideId, requestRideCommand.custId, 
 				requestRideCommand.sourceLoc, requestRideCommand.destinationLoc, this.cabsMap, getContext().getSelf() ), 
 				"fRide-" + this.rideServiceActorId + "-" + rideId);
+		fRideActorRef.tell(new FulfillRide.Command());
 		
 		return this;
 	}
@@ -181,9 +182,7 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 				+", "+rideResponseCommand.cabId + ", " + rideResponseCommand.fare);
 		
 		return this;
-	}
-	
-	
+	}	
 	
 	@Override
 	public Receive<RideServiceGenericCommand> createReceive() {

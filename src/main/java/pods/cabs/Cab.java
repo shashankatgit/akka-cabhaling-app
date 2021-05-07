@@ -46,6 +46,12 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 	}
 
 	public static class SignIn extends CabGenericCommand {
+		long initialPos;
+
+		public SignIn(long initialPos) {
+			super();
+			this.initialPos = initialPos;
+		}				
 	}
 
 	public static class SignOut extends CabGenericCommand {
@@ -110,12 +116,12 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 	}
 	
 	private Behavior<CabGenericCommand> onSignIn(Cab.SignIn signInCommand) {
-		Logger.log("Received Cab.SignIn for cab id : " + this.cabId);
+		Logger.log("Received Cab.SignIn for cab id : " + this.cabId + ", initialPos: " + signInCommand.initialPos);
 		  
         // Generate random integers in range 0 to N_RIDE_SERVICE_INSTANCES
 		Random rand = new Random();
         int randRideServiceId = rand.nextInt(Globals.N_RIDE_SERVICE_INSTANCES);		
-        Globals.rideService.get(randRideServiceId).tell(new RideService.CabSignsIn(this.cabId, 0));
+        Globals.rideService.get(randRideServiceId).tell(new RideService.CabSignsIn(this.cabId, signInCommand.initialPos));
         
 		return this;
 	}

@@ -6,9 +6,13 @@ import akka.actor.typed.ActorRef;
 import pods.cabs.Cab;
 import pods.cabs.Globals;
 import pods.cabs.Main;
+import pods.cabs.RideService;
 import pods.cabs.Wallet;
+import pods.cabs.models.CabStatus;
 import pods.cabs.utils.InitFileReader;
 import pods.cabs.utils.Logger;
+
+import java.util.Random;
 
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -65,8 +69,8 @@ public class AkkaQuickstartTest {
 		cabTestProbe.expectMessage(new Cab.NumRidesReponse(0));
 		Logger.log("Success : Cab NumRides functional\n");
 
-		try {
-			Globals.cabs.get("101").tell(new Cab.SignIn());
+		try {			
+			Globals.cabs.get("101").tell(new Cab.SignIn(50));
 			Thread.sleep(1000);
 			Globals.cabs.get("101").tell(new Cab.SignOut());
 			Thread.sleep(1000);
@@ -74,6 +78,10 @@ public class AkkaQuickstartTest {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+		TestProbe<RideService.RideResponse> fufillRideTestProbe = testKit.createTestProbe();
+		Globals.rideService.get(0).tell(new RideService.RequestRide("201", 50, 100, fufillRideTestProbe.getRef()));
+//		fufillRideTestProbe.expectMessage(new RideService.RideResponse());
 
 	}
 
