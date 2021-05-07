@@ -32,7 +32,7 @@ public class FulfillRide extends AbstractBehavior<FulfillRide.Command> {
 	long sourceLoc;
 	long destinationLoc;
 	HashMap<String,CabStatus> cabsMap;
-	ActorRef<RideService.RideServiceGenericCommand> replyTo;
+	ActorRef<RideService.RideResponse> replyTo;
 	
 	int nTriesDone;
 	int curCabIndex;
@@ -44,7 +44,7 @@ public class FulfillRide extends AbstractBehavior<FulfillRide.Command> {
 	String actorName;
 	
 	public FulfillRide(ActorContext<Command> context, long rideId, String custId, long sourceLoc, 
-			long destinationLoc, HashMap<String,CabStatus> cabsMap, ActorRef<RideService.RideServiceGenericCommand> replyTo) {
+			long destinationLoc, HashMap<String,CabStatus> cabsMap, ActorRef<RideService.RideResponse> replyTo) {
 		super(context);
 		this.actorName = getContext().getSelf().path().name();
 		this.nTriesDone = 0;
@@ -126,11 +126,16 @@ public class FulfillRide extends AbstractBehavior<FulfillRide.Command> {
 			if(nTriesDone < 3) {
 				curCabIndex++;
 				Logger.log(actorName + " : Probing candidate cab no : "+ (curCabIndex+1));
+				
 				Globals.cabs.get(candidateCabs.get(curCabIndex).cabId).tell(new Cab.RequestRide(getContext().getSelf()));
 				this.nTriesDone++;
+				
+				return this;
 			}
 			else {
 				Logger.logErr(actorName + " : Couldn't find ride within 3 attempts");
+				
+				replyTo.tell(new RideService.RideResponse(-1, null, -1, getContext().getSelf()));
 			}
 		}
 		
@@ -150,7 +155,12 @@ public class FulfillRide extends AbstractBehavior<FulfillRide.Command> {
 			Globals.cabs.get(acceptedCabStatus.cabId).tell(new Cab.RideStarted(this.rideId, getContext().getSelf()));
 			
 			//tell ride service instance that ride was successful
-			this.replyTo.tell(new RideService.RideResponse(this.rideId, acceptedCabStatus.cabId, this.fare, getContext().getSelf()));
+			Random rand = new Random();
+			int randRideServiceId = rand.nextInt(Globals.N_RIDE_SERVICE_INSTANCES);
+			Globals.rideService.get(randRideServiceId).tell(new RideService.RideResponse(this.rideId, acceptedCabStatus.cabId, this.fare, getContext().getSelf()));
+			
+			//tell actor testkit
+			replyTo.tell(new RideService.RideResponse(this.rideId, acceptedCabStatus.cabId, this.fare, getContext().getSelf()));
 			
 			return this;
 		}
@@ -161,9 +171,11 @@ public class FulfillRide extends AbstractBehavior<FulfillRide.Command> {
 			Globals.cabs.get(acceptedCabStatus.cabId).tell(new Cab.RideCanceled());
 			
 			//tell ride service instance that ride was unsuccessful
-			this.replyTo.tell(new RideService.RideResponse(-1, null, -1, null));
+			Random rand = new Random();
+			int randRideServiceId = rand.nextInt(Globals.N_RIDE_SERVICE_INSTANCES);
+			Globals.rideService.get(randRideServiceId).tell(new RideService.RideResponse(-1, null, -1, null));		
 			
-			
+			replyTo.tell(new RideService.RideResponse(-1, null, -1, null));
 		}
 		
 		return Behaviors.empty();
@@ -176,6 +188,7 @@ public class FulfillRide extends AbstractBehavior<FulfillRide.Command> {
 		// Test the candidate cabs 
 		if( !probeCabsToRequestRide(sourceLoc, cabsMap) ) {
 			// Since the first probe itself failed, don't do anything more
+			replyTo.tell(new RideService.RideResponse(-1, null, -1, null));
 			return Behaviors.empty();
 		}
 		
@@ -206,10 +219,12 @@ public class FulfillRide extends AbstractBehavior<FulfillRide.Command> {
 	private Behavior<Command> onRideEnded(FulfillRide.RideEnded rideEndedCommand) {
 		Logger.log(actorName + " : Received FulfillRide.RideEnded");
 		
-		// Tell RideService that the ride has ended
 		CabStatus acceptedCabStatus = candidateCabs.get(acceptedCabIndex);
 		
-		replyTo.tell(new RideService.RideEnded(acceptedCabStatus.cabId, this.destinationLoc));
+		// Tell RideService that the ride has ended
+		Random rand = new Random();
+		int randRideServiceId = rand.nextInt(Globals.N_RIDE_SERVICE_INSTANCES);
+		Globals.rideService.get(randRideServiceId).tell(new RideService.RideEnded(acceptedCabStatus.cabId, this.destinationLoc));
 		
 		// do harakiri
 		return Behaviors.empty();
@@ -254,7 +269,7 @@ public class FulfillRide extends AbstractBehavior<FulfillRide.Command> {
 				.build();
 	}
 
-	public static Behavior<Command> create(long rideId, String custId, long sourceLoc, long destinationLoc, HashMap<String,CabStatus> cabsMap, ActorRef<RideService.RideServiceGenericCommand> replyTo) {
+	public static Behavior<Command> create(long rideId, String custId, long sourceLoc, long destinationLoc, HashMap<String,CabStatus> cabsMap, ActorRef<RideService.RideResponse> replyTo) {
 		Logger.log("Inside 'create' of a new FulfillRideGenericCommand actor");
 		return Behaviors.setup(context -> {	
 			return new FulfillRide(context, rideId, custId, sourceLoc, destinationLoc, cabsMap, replyTo);

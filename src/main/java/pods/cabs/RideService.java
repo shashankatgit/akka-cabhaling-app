@@ -95,10 +95,10 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 	}
 
 	public static class RideResponse extends RideServiceGenericCommand {
-		long rideId;
-		String cabId;
-		long fare;
-		ActorRef<FulfillRide.Command> fRide;
+		public long rideId;
+		public String cabId;
+		public long fare;
+		public ActorRef<FulfillRide.Command> fRide;
 
 		public RideResponse(long rideId, String cabId, long fare, ActorRef<Command> fRide) {
 			super();
@@ -220,7 +220,7 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 				&& Globals.wallets.containsKey(requestRideCommand.custId)) {
 			ActorRef<FulfillRide.Command> fRideActorRef = getContext().spawn(
 					FulfillRide.create(rideId, requestRideCommand.custId, requestRideCommand.sourceLoc,
-							requestRideCommand.destinationLoc, this.cabsMap, getContext().getSelf()),
+							requestRideCommand.destinationLoc, this.cabsMap, requestRideCommand.replyTo),
 					"fRide-" + this.rideServiceActorId + "-" + rideId);
 			Logger.log(actorName + " : Spawning a FulfillRide actor");
 			

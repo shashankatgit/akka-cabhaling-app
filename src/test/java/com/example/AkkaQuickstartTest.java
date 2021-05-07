@@ -12,6 +12,8 @@ import pods.cabs.models.CabStatus;
 import pods.cabs.utils.InitFileReader;
 import pods.cabs.utils.Logger;
 
+import static org.junit.Assert.assertTrue;
+
 import java.util.Random;
 
 import org.junit.ClassRule;
@@ -84,7 +86,13 @@ public class AkkaQuickstartTest {
 		
 		TestProbe<RideService.RideResponse> fufillRideTestProbe = testKit.createTestProbe();
 		Globals.rideService.get(0).tell(new RideService.RequestRide("201", 50, 100, fufillRideTestProbe.getRef()));
-//		fufillRideTestProbe.expectMessage(new RideService.RideResponse());
+		RideService.RideResponse rideResponse =  fufillRideTestProbe.receiveMessage();
+		
+		if(rideResponse.rideId <= 0) {
+			assertTrue(false);
+		}
+		
+		Globals.cabs.get(rideResponse.cabId).tell(new Cab.RideEnded(rideResponse.rideId));
 		
 		testCase2();
 	}
