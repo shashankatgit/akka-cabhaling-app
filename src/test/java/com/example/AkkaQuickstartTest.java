@@ -70,7 +70,10 @@ public class AkkaQuickstartTest {
 		Logger.log("Success : Cab NumRides functional\n");
 
 		try {			
-			Globals.cabs.get("101").tell(new Cab.SignIn(50));
+			Globals.cabs.get("101").tell(new Cab.SignIn(0));
+			Globals.cabs.get("102").tell(new Cab.SignIn(20));
+			Globals.cabs.get("103").tell(new Cab.SignIn(40));
+			Globals.cabs.get("104").tell(new Cab.SignIn(60));
 			Thread.sleep(1000);
 			Globals.cabs.get("101").tell(new Cab.SignOut());
 			Thread.sleep(1000);
@@ -82,7 +85,13 @@ public class AkkaQuickstartTest {
 		TestProbe<RideService.RideResponse> fufillRideTestProbe = testKit.createTestProbe();
 		Globals.rideService.get(0).tell(new RideService.RequestRide("201", 50, 100, fufillRideTestProbe.getRef()));
 //		fufillRideTestProbe.expectMessage(new RideService.RideResponse());
-
+		
+		testCase2();
 	}
-
+	
+	
+	public void testCase2() {
+		
+		
+	}
 }

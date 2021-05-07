@@ -15,7 +15,7 @@ public class Logger {
 
 	public static void log(String logString) {
 		if (logEnabled) {
-			System.out.println("[" + dateFormatter.get().format(new Date()) + "] CAB : LOG : " + logString);
+			System.out.println("[" + dateFormatter.get().format(new Date()) + "] LOG: " + logString);
 		}
 	}
 
