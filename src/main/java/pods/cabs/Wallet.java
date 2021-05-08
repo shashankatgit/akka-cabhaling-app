@@ -1,29 +1,25 @@
 package pods.cabs;
 
-import com.example.Greeter;
-import com.example.Greeter.Greet;
-
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import pods.cabs.Main.StartedCommand;
 import pods.cabs.utils.Logger;
 
-public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
+public class Wallet extends AbstractBehavior<Wallet.Command> {
 
 	String custID;
 	long accountBalance;
 
-	public Wallet(ActorContext<WalletGenericCommand> context, String newCustID, long balance) {
+	public Wallet(ActorContext<Wallet.Command> context, String newCustID, long balance) {
 		super(context);
 		this.custID = newCustID;
 		this.accountBalance = balance;
 	}
 
-	public static Behavior<WalletGenericCommand> create(String custID, long balance) {
+	public static Behavior<Wallet.Command> create(String custID, long balance) {
 //		Logger.log("In 'create' of a new wallet actor : wallet-" + custID);
 		return Behaviors.setup(context -> {
 			return new Wallet(context, custID, balance);
@@ -31,14 +27,14 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 	}
 	
 	@Override
-	public Receive<WalletGenericCommand> createReceive() {
+	public Receive<Wallet.Command> createReceive() {
 //		Logger.log("---------------Inside createReceive of Wallet--------------------");
 		return newReceiveBuilder()			
 			.onMessage(GetBalance.class, this::onGetBalance)
 			.onMessage(AddBalance.class, this::onAddBalance)
 			.onMessage(DeductBalance.class, this::onDeductBalance)
 			.onMessage(Reset.class, this::onReset)			
-			.onMessage(WalletGenericCommand.class, notUsed -> {
+			.onMessage(Wallet.Command.class, notUsed -> {
 				Logger.logErr("Shouldn't have received this generic command for wallet-" + this.custID);
 				return this;
 				})
@@ -48,10 +44,10 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 	//Messages ----------------------------------------------------------------
 	
 	//Receive 
-	public static class WalletGenericCommand {
+	public static class Command {
 	}
 
-	public static class GetBalance extends WalletGenericCommand {
+	public static class GetBalance extends Wallet.Command {
 		ActorRef<Wallet.ResponseBalance> replyTo;
 
 		public GetBalance(ActorRef<ResponseBalance> replyTo) {
@@ -60,7 +56,7 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 		}		
 	}
 
-	public static class DeductBalance extends WalletGenericCommand {
+	public static class DeductBalance extends Wallet.Command {
 		long toDeduct;
 		ActorRef<Wallet.ResponseBalance> replyTo;
 		
@@ -71,7 +67,7 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 		}
 	}
 
-	public static class AddBalance extends WalletGenericCommand {
+	public static class AddBalance extends Wallet.Command {
 		long toAdd;
 
 		public AddBalance(long toAdd) {
@@ -80,7 +76,7 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 		}
 	}
 
-	public static class Reset extends WalletGenericCommand {
+	public static class Reset extends Wallet.Command {
 		ActorRef<Wallet.ResponseBalance> replyTo;
 
 		public Reset(ActorRef<ResponseBalance> replyTo) {
@@ -91,8 +87,8 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 
 	
 	//Send
-	public static class ResponseBalance extends WalletGenericCommand {
-		long balance;
+	public static class ResponseBalance extends Wallet.Command {
+		public long balance;
 
 		public ResponseBalance(long balance) {
 			super();
@@ -110,14 +106,14 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 	
 	//Message handlers ----------------------------------------------------------------
 
-	private Behavior<WalletGenericCommand> onGetBalance(Wallet.GetBalance getBalanceCommand) {
+	private Behavior<Wallet.Command> onGetBalance(Wallet.GetBalance getBalanceCommand) {
 		Logger.log("Received Wallet.GetBalance and responding with balance : " + this.accountBalance);
 		getBalanceCommand.replyTo.tell(new ResponseBalance(this.accountBalance));
 		
 		return this;
 	}
 	
-	private Behavior<WalletGenericCommand> onAddBalance(Wallet.AddBalance addBalanceCommand) {
+	private Behavior<Wallet.Command> onAddBalance(Wallet.AddBalance addBalanceCommand) {
 		Logger.log("Received Wallet.AddBalance to add balance : " + addBalanceCommand.toAdd);
 		
 		if(addBalanceCommand.toAdd >= 0)
@@ -128,7 +124,7 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 		return this;
 	}
 	
-	private Behavior<WalletGenericCommand> onDeductBalance(Wallet.DeductBalance deductBalanceCommand){
+	private Behavior<Wallet.Command> onDeductBalance(Wallet.DeductBalance deductBalanceCommand){
 		Logger.log("Received Wallet.DeductBalance to deduct balance : " + deductBalanceCommand.toDeduct);
 		
 		if(deductBalanceCommand.toDeduct > this.accountBalance) {
@@ -143,7 +139,7 @@ public class Wallet extends AbstractBehavior<Wallet.WalletGenericCommand> {
 		return this;
 	}
 	
-	private Behavior<WalletGenericCommand> onReset(Wallet.Reset resetCommand){
+	private Behavior<Wallet.Command> onReset(Wallet.Reset resetCommand){
 		Logger.log("Received Wallet.Reset");
 		
 		this.accountBalance = Globals.initReadWrapperObj.walletBalance;

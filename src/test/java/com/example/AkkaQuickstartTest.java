@@ -21,9 +21,11 @@ import org.junit.Test;
 
 //#definition
 public class AkkaQuickstartTest {
-
+	
 	@ClassRule
 	public static final TestKitJunitResource testKit = new TestKitJunitResource();
+	
+	public TestInterface testInterface;
 //#definition
 
 	// #test
@@ -39,10 +41,43 @@ public class AkkaQuickstartTest {
 	@Test
 	public void testMainStarted() {
 		TestProbe<Main.StartedCommand> mainTestProbe = testKit.createTestProbe();
-		ActorRef<Main.MainGenericCommand> underTest = testKit.spawn(Main.create(mainTestProbe.getRef()), "main");
+		ActorRef<Main.Command> underTest = testKit.spawn(Main.create(mainTestProbe.getRef()), "main");
 		mainTestProbe.expectMessage(new Main.StartedCommand(true));
 		Logger.log("Main Started\n");
+		
+		this.testInterface = new TestInterface(testKit);
+		
+		testInterface.resetAll();
+		publicTest1();
+		
+		testInterface.resetAll();
+		naivePrivateTest();
+		
+		testInterface.resetAll();
+		privateTestCase1();
+		
+	}
+	
+	
+	public void publicTest1() {
+		ActorRef<Cab.Command> cab101 = Globals.cabs.get("101");
+		cab101.tell(new Cab.SignIn(10));
+		ActorRef<RideService.Command> rideService = Globals.rideService[0];
+			// If we are going to raise multiple requests in this script,
+			// better to send them to different RideService actors to achieve
+			// load balancing.
+		TestProbe<RideService.RideResponse> probe = testKit.createTestProbe();
+		rideService.tell(new RideService.RequestRide("201", 10, 100, probe.ref()));
+		RideService.RideResponse resp = probe.receiveMessage();
+			// Blocks and waits for a response message.
+			// There is also an option to block for a bounded period of time
+			// and give up after timeout.
+		assertTrue(resp.rideId != -1);
+		cab101.tell(new Cab.RideEnded(resp.rideId));
 
+	}
+	
+	public void naivePrivateTest() {
 		long initBalance = Globals.initReadWrapperObj.walletBalance;
 
 		TestProbe<Wallet.ResponseBalance> walletTestProbe = testKit.createTestProbe();
@@ -85,7 +120,7 @@ public class AkkaQuickstartTest {
 		}
 		
 		TestProbe<RideService.RideResponse> fufillRideTestProbe = testKit.createTestProbe();
-		Globals.rideService.get(0).tell(new RideService.RequestRide("201", 50, 100, fufillRideTestProbe.getRef()));
+		Globals.rideService[0].tell(new RideService.RequestRide("201", 50, 100, fufillRideTestProbe.getRef()));
 		RideService.RideResponse rideResponse =  fufillRideTestProbe.receiveMessage();
 		
 		if(rideResponse.rideId <= 0) {
@@ -93,12 +128,9 @@ public class AkkaQuickstartTest {
 		}
 		
 		Globals.cabs.get(rideResponse.cabId).tell(new Cab.RideEnded(rideResponse.rideId));
-		
-		testCase2();
 	}
 	
-	
-	public void testCase2() {
+	public void privateTestCase1() {
 		
 		
 	}

@@ -1,15 +1,10 @@
 package pods.cabs;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 
 import akka.actor.typed.ActorRef;
@@ -18,8 +13,6 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import pods.cabs.Cab.CabGenericCommand;
-import pods.cabs.Wallet.DeductBalance;
 import pods.cabs.Wallet.ResponseBalance;
 import pods.cabs.models.CabStatus;
 import pods.cabs.utils.Logger;
@@ -157,7 +150,7 @@ public class FulfillRide extends AbstractBehavior<FulfillRide.Command> {
 			//tell ride service instance that ride was successful
 			Random rand = new Random();
 			int randRideServiceId = rand.nextInt(Globals.N_RIDE_SERVICE_INSTANCES);
-			Globals.rideService.get(randRideServiceId).tell(new RideService.RideResponse(this.rideId, acceptedCabStatus.cabId, this.fare, getContext().getSelf()));
+			Globals.rideService[randRideServiceId].tell(new RideService.RideResponse(this.rideId, acceptedCabStatus.cabId, this.fare, getContext().getSelf()));
 			
 			//tell actor testkit
 			replyTo.tell(new RideService.RideResponse(this.rideId, acceptedCabStatus.cabId, this.fare, getContext().getSelf()));
@@ -173,7 +166,7 @@ public class FulfillRide extends AbstractBehavior<FulfillRide.Command> {
 			//tell ride service instance that ride was unsuccessful
 			Random rand = new Random();
 			int randRideServiceId = rand.nextInt(Globals.N_RIDE_SERVICE_INSTANCES);
-			Globals.rideService.get(randRideServiceId).tell(new RideService.RideResponse(-1, null, -1, null));		
+			Globals.rideService[randRideServiceId].tell(new RideService.RideResponse(-1, null, -1, null));		
 			
 			replyTo.tell(new RideService.RideResponse(-1, null, -1, null));
 		}
@@ -224,7 +217,7 @@ public class FulfillRide extends AbstractBehavior<FulfillRide.Command> {
 		// Tell RideService that the ride has ended
 		Random rand = new Random();
 		int randRideServiceId = rand.nextInt(Globals.N_RIDE_SERVICE_INSTANCES);
-		Globals.rideService.get(randRideServiceId).tell(new RideService.RideEnded(acceptedCabStatus.cabId, this.destinationLoc));
+		Globals.rideService[randRideServiceId].tell(new RideService.RideEnded(acceptedCabStatus.cabId, this.destinationLoc));
 		
 		// do harakiri
 		return Behaviors.empty();

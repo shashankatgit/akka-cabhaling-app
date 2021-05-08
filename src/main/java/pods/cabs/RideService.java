@@ -8,14 +8,11 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import pods.cabs.Cab.CabGenericCommand;
-import pods.cabs.FulfillRide.Command;
-import pods.cabs.Wallet.WalletGenericCommand;
 import pods.cabs.models.CabStatus;
 import pods.cabs.utils.Logger;
 import pods.cabs.values.CabStates;
 
-public class RideService extends AbstractBehavior<RideService.RideServiceGenericCommand> {
+public class RideService extends AbstractBehavior<RideService.Command> {
 
 	long rideServiceActorId;
 
@@ -23,7 +20,7 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 
 	public HashMap<String, CabStatus> cabsMap;
 
-	public RideService(ActorContext<RideServiceGenericCommand> context, long rideServiceActorId) {
+	public RideService(ActorContext<RideService.Command> context, long rideServiceActorId) {
 		super(context);
 		this.rideServiceActorId = rideServiceActorId;
 		this.actorName = getContext().getSelf().path().name();
@@ -36,50 +33,56 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 		}
 	}
 
-	public static class RideServiceGenericCommand {
+	public static class Command {
 	}
 
-	public static class CabSignsIn extends RideServiceGenericCommand {
+	public static class CabSignsIn extends RideService.Command {
 		String cabId;
 		long initialPos;
+		long timeCounter;
 
-		public CabSignsIn(String cabId, long initialPos) {
+		public CabSignsIn(String cabId, long initialPos, long timeCounter) {
 			super();
 			this.cabId = cabId;
 			this.initialPos = initialPos;
+			this.timeCounter = timeCounter;
 		}
 	}
 
-	public static class CabSignsInInternal extends RideServiceGenericCommand {
+	public static class CabSignsInInternal extends RideService.Command {
 		String cabId;
 		long initialPos;
+		long timeCounter;
 
-		public CabSignsInInternal(String cabId, long initialPos) {
+		public CabSignsInInternal(String cabId, long initialPos, long timeCounter) {
 			super();
 			this.cabId = cabId;
 			this.initialPos = initialPos;
+			this.timeCounter = timeCounter;
 		}
 	}
 
-	public static class CabSignsOut extends RideServiceGenericCommand {
+	public static class CabSignsOut extends RideService.Command {
 		String cabId;
-
-		public CabSignsOut(String cabId) {
+		long timeCounter;
+		public CabSignsOut(String cabId, long timeCounter) {
 			super();
 			this.cabId = cabId;
+			this.timeCounter = timeCounter;
 		}
 	}
 
-	public static class CabSignsOutInternal extends RideServiceGenericCommand {
+	public static class CabSignsOutInternal extends RideService.Command {
 		String cabId;
-
-		public CabSignsOutInternal(String cabId) {
+		long timeCounter;
+		public CabSignsOutInternal(String cabId, long timeCounter) {
 			super();
 			this.cabId = cabId;
+			this.timeCounter = timeCounter;
 		}
 	}
 
-	public static class RequestRide extends RideServiceGenericCommand {
+	public static class RequestRide extends RideService.Command {
 		String custId;
 		long sourceLoc;
 		long destinationLoc;
@@ -94,13 +97,13 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 		}
 	}
 
-	public static class RideResponse extends RideServiceGenericCommand {
+	public static class RideResponse extends RideService.Command {
 		public long rideId;
 		public String cabId;
 		public long fare;
 		public ActorRef<FulfillRide.Command> fRide;
 
-		public RideResponse(long rideId, String cabId, long fare, ActorRef<Command> fRide) {
+		public RideResponse(long rideId, String cabId, long fare, ActorRef<FulfillRide.Command> fRide) {
 			super();
 			this.rideId = rideId;
 			this.cabId = cabId;
@@ -109,7 +112,7 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 		}
 	}
 
-	public static class RideResponseSuccessInternal extends RideServiceGenericCommand {
+	public static class RideResponseSuccessInternal extends RideService.Command {
 		String cabId;
 
 		public RideResponseSuccessInternal(String cabId) {
@@ -118,7 +121,7 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 		}
 	}
 
-	public static class RideEnded extends RideServiceGenericCommand {
+	public static class RideEnded extends RideService.Command {
 		String cabId;
 		long destinationPos;
 
@@ -129,7 +132,7 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 		}
 	}
 
-	public static class RideEndedInternal extends RideServiceGenericCommand {
+	public static class RideEndedInternal extends RideService.Command {
 		String cabId;
 		long destinationPos;
 
@@ -142,74 +145,88 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 
 	// Define message handlers here
 
-	private Behavior<RideServiceGenericCommand> onCabSignsIn(RideService.CabSignsIn cabSignsInCommand) {
+	private Behavior<RideService.Command> onCabSignsIn(RideService.CabSignsIn cabSignsInCommand) {
 		Logger.log(actorName + " : Received RideService.CabSignsIn for cabId : " + cabSignsInCommand.cabId
-				+ " on RideService instance " + this.rideServiceActorId);
+				+ " on RideService instance " + this.rideServiceActorId + " with timeCounter : "+cabSignsInCommand.timeCounter);
 
 		// Broadcast the message to all including own
 		for (int i = 0; i < Globals.N_RIDE_SERVICE_INSTANCES; i++) {
-			Globals.rideService.get(i)
-					.tell(new CabSignsInInternal(cabSignsInCommand.cabId, cabSignsInCommand.initialPos));
+			Globals.rideService[i]
+					.tell(new CabSignsInInternal(cabSignsInCommand.cabId, cabSignsInCommand.initialPos, cabSignsInCommand.timeCounter));
 		}
 
 		return this;
 	}
 
-	private Behavior<RideServiceGenericCommand> onCabSignsInInternal(
+	private Behavior<RideService.Command> onCabSignsInInternal(
 			RideService.CabSignsInInternal cabSignsInInternalCommand) {
-		Logger.log(actorName + " : Received RideService.CabSignsInInternal for cabId : "
-				+ cabSignsInInternalCommand.cabId + " on RideService instance " + this.rideServiceActorId);
+//		Logger.log(actorName + " : Received RideService.CabSignsInInternal for cabId : "
+//				+ cabSignsInInternalCommand.cabId + " on RideService instance " + this.rideServiceActorId);
 
 		CabStatus cabStatus = this.cabsMap.get(cabSignsInInternalCommand.cabId);
-
-		if (cabStatus != null && cabStatus.majorState == CabStates.MajorStates.SIGNED_OUT) {
-			Logger.log("Successfully signed in cab id : " + cabSignsInInternalCommand.cabId
-					+ " on Ride Service instance " + this.rideServiceActorId);
-
+		
+		if(cabStatus.timeCounter < cabSignsInInternalCommand.timeCounter) {
 			cabStatus.majorState = CabStates.MajorStates.SIGNED_IN;
 			cabStatus.minorState = CabStates.MinorStates.AVAILABLE;
 			cabStatus.curPos = cabSignsInInternalCommand.initialPos;
-		} else {
-			Logger.logErr(actorName + " : Couldn't sign in cab id : " + cabSignsInInternalCommand.cabId
-					+ " on Ride Service instance " + this.rideServiceActorId);
+			cabStatus.timeCounter = cabSignsInInternalCommand.timeCounter;
 		}
+
+//		if (cabStatus != null && cabStatus.majorState == CabStates.MajorStates.SIGNED_OUT) {
+//			Logger.log("Successfully signed in cab id : " + cabSignsInInternalCommand.cabId
+//					+ " on Ride Service instance " + this.rideServiceActorId);
+//
+//			cabStatus.majorState = CabStates.MajorStates.SIGNED_IN;
+//			cabStatus.minorState = CabStates.MinorStates.AVAILABLE;
+//			cabStatus.curPos = cabSignsInInternalCommand.initialPos;
+//		} else {
+//			Logger.logErr(actorName + " : Couldn't sign in cab id : " + cabSignsInInternalCommand.cabId
+//					+ " on Ride Service instance " + this.rideServiceActorId + " ::: cab state : " + cabStatus.majorState + ", " + cabStatus.minorState);
+//		}
 		return this;
 	}
 
-	private Behavior<RideServiceGenericCommand> onCabSignsOut(RideService.CabSignsOut cabSignsOutCommand) {
+	private Behavior<RideService.Command> onCabSignsOut(RideService.CabSignsOut cabSignsOutCommand) {
 		Logger.log("Received RideService.CabSignsOut for cabId : " + cabSignsOutCommand.cabId
-				+ " on RideService instance " + this.rideServiceActorId);
+				+ " on RideService instance " + this.rideServiceActorId + " with timeCounter : "+cabSignsOutCommand.timeCounter);
 
 		// Broadcast the message to all including own
 		for (int i = 0; i < Globals.N_RIDE_SERVICE_INSTANCES; i++) {
-			Globals.rideService.get(i).tell(new CabSignsOutInternal(cabSignsOutCommand.cabId));
+			Globals.rideService[i].tell(new CabSignsOutInternal(cabSignsOutCommand.cabId, cabSignsOutCommand.timeCounter));
 		}
 		return this;
 	}
 
-	private Behavior<RideServiceGenericCommand> onCabSignsOutInternal(
+	private Behavior<RideService.Command> onCabSignsOutInternal(
 			RideService.CabSignsOutInternal cabSignsOutInternalCommand) {
-		Logger.log("Received RideService.CabSignsOutInternal for cabId : " + cabSignsOutInternalCommand.cabId
-				+ " on RideService instance " + this.rideServiceActorId);
+//		Logger.log("Received RideService.CabSignsOutInternal for cabId : " + cabSignsOutInternalCommand.cabId
+//				+ " on RideService instance " + this.rideServiceActorId);
 
 		CabStatus cabStatus = this.cabsMap.get(cabSignsOutInternalCommand.cabId);
-
-		if (cabStatus != null && cabStatus.majorState == CabStates.MajorStates.SIGNED_IN
-				&& cabStatus.minorState == CabStates.MinorStates.AVAILABLE) {
-			Logger.log("Successfully signed out cab id : " + cabSignsOutInternalCommand.cabId
-					+ " on Ride Service instance " + this.rideServiceActorId);
-
+		
+		if(cabStatus.timeCounter < cabSignsOutInternalCommand.timeCounter) {
 			cabStatus.majorState = CabStates.MajorStates.SIGNED_OUT;
 			cabStatus.minorState = CabStates.MinorStates.NONE;
 			cabStatus.curPos = -1;
-		} else {
-			Logger.logErr("Couldn't sign out cab id : " + cabSignsOutInternalCommand.cabId
-					+ " on Ride Service instance " + this.rideServiceActorId);
+			cabStatus.timeCounter = cabSignsOutInternalCommand.timeCounter;
 		}
+
+//		if (cabStatus != null && cabStatus.majorState == CabStates.MajorStates.SIGNED_IN
+//				&& cabStatus.minorState == CabStates.MinorStates.AVAILABLE) {
+//			Logger.log("Successfully signed out cab id : " + cabSignsOutInternalCommand.cabId
+//					+ " on Ride Service instance " + this.rideServiceActorId);
+//
+//			cabStatus.majorState = CabStates.MajorStates.SIGNED_OUT;
+//			cabStatus.minorState = CabStates.MinorStates.NONE;
+//			cabStatus.curPos = -1;
+//		} else {
+//			Logger.logErr("Couldn't sign out cab id : " + cabSignsOutInternalCommand.cabId
+//					+ " on Ride Service instance " + this.rideServiceActorId + " ::: cab state : " + cabStatus.majorState + ", " + cabStatus.minorState);
+//		}
 		return this;
 	}
 
-	private Behavior<RideServiceGenericCommand> onRequestRide(RideService.RequestRide requestRideCommand) {
+	private Behavior<RideService.Command> onRequestRide(RideService.RequestRide requestRideCommand) {
 		Logger.log(actorName + " : Received RideService.RequestRide for (custId,srcLoc,destLoc) : ("
 				+ requestRideCommand.custId + ", " + requestRideCommand.sourceLoc + ", "
 				+ requestRideCommand.destinationLoc + ")");
@@ -232,7 +249,7 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 		return this;
 	}
 
-	private Behavior<RideServiceGenericCommand> onRideResponse(RideService.RideResponse rideResponseCommand) {
+	private Behavior<RideService.Command> onRideResponse(RideService.RideResponse rideResponseCommand) {
 		Logger.log("Received RideService.RideResponse for (rideId,cabId,fare) : (" + rideResponseCommand.rideId + ", "
 				+ rideResponseCommand.cabId + ", " + rideResponseCommand.fare);
 
@@ -240,7 +257,7 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 			Logger.log(actorName + " : FulfillRide successfully gave ride");
 			// Broadcast the message to all including own
 			for (int i = 0; i < Globals.N_RIDE_SERVICE_INSTANCES; i++) {
-				Globals.rideService.get(i).tell(new RideResponseSuccessInternal(rideResponseCommand.cabId));
+				Globals.rideService[i].tell(new RideResponseSuccessInternal(rideResponseCommand.cabId));
 			}
 		} else {
 			Logger.logErr(actorName + " : FulfillRide couldn't give ride");
@@ -250,9 +267,9 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 		return this;
 	}
 
-	private Behavior<RideServiceGenericCommand> onRideResponseSuccessInternal(RideService.RideResponseSuccessInternal rideResponseSuccessInternalCommand) {
-		Logger.log(actorName + " : Received RideService.RideResponseSuccessInternal with cabId : "
-				+ rideResponseSuccessInternalCommand.cabId);
+	private Behavior<RideService.Command> onRideResponseSuccessInternal(RideService.RideResponseSuccessInternal rideResponseSuccessInternalCommand) {
+//		Logger.log(actorName + " : Received RideService.RideResponseSuccessInternal with cabId : "
+//				+ rideResponseSuccessInternalCommand.cabId);
 
 		// Understand that the cab has started giving ride so, converge your state
 		// accordingly
@@ -261,18 +278,18 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 		return this;
 	}
 
-	private Behavior<RideServiceGenericCommand> onRideEnded(RideService.RideEnded rideEndedCommand) {
+	private Behavior<RideService.Command> onRideEnded(RideService.RideEnded rideEndedCommand) {
 		Logger.log(actorName + " : Received RideService.RideEnded with (cabId,destPos) : " + rideEndedCommand.cabId +", " + rideEndedCommand.destinationPos);
 
 		// Broadcast the message to all including own
 		for (int i = 0; i < Globals.N_RIDE_SERVICE_INSTANCES; i++) {
-			Globals.rideService.get(i).tell(new RideEndedInternal(rideEndedCommand.cabId, rideEndedCommand.destinationPos));
+			Globals.rideService[i].tell(new RideEndedInternal(rideEndedCommand.cabId, rideEndedCommand.destinationPos));
 		}
 
 		return this;
 	}
 
-	private Behavior<RideServiceGenericCommand> onRideEndedInternal(RideService.RideEndedInternal rideEndedInternalCommand) {
+	private Behavior<RideService.Command> onRideEndedInternal(RideService.RideEndedInternal rideEndedInternalCommand) {
 		Logger.log(actorName + " : Received RideService.RideEndedInternal with cabId : " + rideEndedInternalCommand.cabId);
 		
 		this.cabsMap.get(rideEndedInternalCommand.cabId).minorState = CabStates.MinorStates.AVAILABLE;
@@ -282,7 +299,7 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 	}
 
 	@Override
-	public Receive<RideServiceGenericCommand> createReceive() {
+	public Receive<RideService.Command> createReceive() {
 		return newReceiveBuilder()
 				.onMessage(CabSignsIn.class, this::onCabSignsIn)
 				.onMessage(CabSignsInInternal.class, this::onCabSignsInInternal)
@@ -293,13 +310,13 @@ public class RideService extends AbstractBehavior<RideService.RideServiceGeneric
 				.onMessage(RideResponseSuccessInternal.class, this::onRideResponseSuccessInternal)
 				.onMessage(RideEnded.class, this::onRideEnded)
 				.onMessage(RideEndedInternal.class, this::onRideEndedInternal)
-				.onMessage(RideServiceGenericCommand.class, notUsed -> {
+				.onMessage(RideService.Command.class, notUsed -> {
 					Logger.logErr("Shouldn't have received this generic command for rideservice");
 					return this;
 				}).build();
 	}
 
-	public static Behavior<RideServiceGenericCommand> create(long rideServiceActorId) {
+	public static Behavior<RideService.Command> create(long rideServiceActorId) {
 //		Logger.log("In 'create' of a new RideService actor, id : " + rideServiceActorId);
 		return Behaviors.setup(context -> {
 			return new RideService(context, rideServiceActorId);

@@ -1,12 +1,6 @@
 package pods.cabs;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Objects;
-
-import com.example.GreeterMain;
-import com.example.Greeter.Greeted;
-import com.example.GreeterMain.SayHello;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
@@ -14,21 +8,19 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import pods.cabs.Cab.CabGenericCommand;
-import pods.cabs.Wallet.WalletGenericCommand;
 import pods.cabs.utils.InitFileReader;
-import pods.cabs.utils.Logger;
 import pods.cabs.utils.InitFileReader.InitReadWrapper;
+import pods.cabs.utils.Logger;
 
-public class Main extends AbstractBehavior<Main.MainGenericCommand> {
+public class Main extends AbstractBehavior<Main.Command> {
 	
-	public Main(ActorContext<MainGenericCommand> context) {
+	public Main(ActorContext<Main.Command> context) {
 		super(context);
 		// TODO Auto-generated constructor stub
 	}
 
 
-	public static final class MainGenericCommand {}
+	public static final class Command {}
 	
 	public static final class StartedCommand {
 		boolean status;
@@ -46,7 +38,7 @@ public class Main extends AbstractBehavior<Main.MainGenericCommand> {
 	    }
 	}
 	
-    public static Behavior<MainGenericCommand> create(ActorRef<Main.StartedCommand> testProbe) {
+    public static Behavior<Main.Command> create(ActorRef<Main.StartedCommand> testProbe) {
     	Logger.log("Main actor being created");
     	
     	return Behaviors.setup(context -> {
@@ -63,23 +55,24 @@ public class Main extends AbstractBehavior<Main.MainGenericCommand> {
 			// Create multiple Cab Actors
 			for (String cabID : wrapperObj.cabIDList) {
 				Logger.log("Trying to spawn the actor cab-"+cabID);
-				ActorRef<Cab.CabGenericCommand> cabActorRef = context.spawn(Cab.create(cabID), "cab-"+cabID);
+				ActorRef<Cab.Command> cabActorRef = context.spawn(Cab.create(cabID), "cab-"+cabID);
 				Globals.cabs.put(cabID, cabActorRef);
 			}
 			
 			// Create multiple Wallet Actors
 			for (String custID : wrapperObj.custIDList) {
 				Logger.log("Trying to spawn the actor wallet-"+custID+" with wallet balance: "+ initWalletBalance);
-				ActorRef<Wallet.WalletGenericCommand> walletActorRef = context.spawn(Wallet.create(custID, initWalletBalance), "wallet-"+custID);
+				ActorRef<Wallet.Command> walletActorRef = context.spawn(Wallet.create(custID, initWalletBalance), "wallet-"+custID);
 				Globals.wallets.put(custID, walletActorRef);
 			}		
 			
 			// Create multiple RideService Actors
+			Globals.rideService = new ActorRef[10];
 			for (int i=0; i<Globals.N_RIDE_SERVICE_INSTANCES; i++) {
 				Logger.log("Trying to spawn the Ride Service Actor instance " + i);
-				ActorRef<RideService.RideServiceGenericCommand> rideServiceActorRef = 
+				ActorRef<RideService.Command> rideServiceActorRef = 
 						context.spawn(RideService.create(i), "rideservice-"+i);
-				Globals.rideService.add(rideServiceActorRef);
+				Globals.rideService[i] = (rideServiceActorRef);
 			}	
 			
 			testProbe.tell(new Main.StartedCommand(true));
@@ -94,10 +87,10 @@ public class Main extends AbstractBehavior<Main.MainGenericCommand> {
     }
 
 	@Override
-	public Receive<MainGenericCommand> createReceive() {
+	public Receive<Main.Command> createReceive() {
 		Logger.log("---------------Inside createReceive of Main--------------------");
 		return newReceiveBuilder()
-		        .onMessage(MainGenericCommand.class, notUsed -> {
+		        .onMessage(Main.Command.class, notUsed -> {
 		        	Logger.logErr("Shouldn't have received this generic command for main actor");
 		        	return this;
 		        	})

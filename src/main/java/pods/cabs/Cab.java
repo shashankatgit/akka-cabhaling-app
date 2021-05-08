@@ -8,14 +8,10 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import pods.cabs.FulfillRide.Command;
-import pods.cabs.Main.MainGenericCommand;
-import pods.cabs.Wallet.ResponseBalance;
-import pods.cabs.Wallet.WalletGenericCommand;
 import pods.cabs.utils.Logger;
 import pods.cabs.values.CabStates;
 
-public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
+public class Cab extends AbstractBehavior<Cab.Command> {
 	String cabId;
 	String majorState;
 	String minorState;
@@ -23,10 +19,12 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 	long numRides;
 	long numRequestsRecvd;
 	ActorRef<FulfillRide.Command> fRide;
+	
+	long timeCounter;
 
 	String actorName;
 
-	public Cab(ActorContext<CabGenericCommand> context, String cabId) {
+	public Cab(ActorContext<Command> context, String cabId) {
 		super(context);
 		this.actorName = getContext().getSelf().path().name();
 		this.cabId = cabId;
@@ -35,12 +33,13 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 		this.numRides = 0;
 		this.numRequestsRecvd = 0;
 		this.fRide = null;
+		this.timeCounter = 0;
 	}
 
-	public static class CabGenericCommand {
+	public static class Command {
 	}
 
-	public static class RideEnded extends CabGenericCommand {
+	public static class RideEnded extends Command {
 		long rideId;
 
 		public RideEnded(long rideId) {
@@ -49,7 +48,7 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 		}
 	}
 
-	public static class SignIn extends CabGenericCommand {
+	public static class SignIn extends Command {
 		long initialPos;
 
 		public SignIn(long initialPos) {
@@ -58,10 +57,10 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 		}
 	}
 
-	public static class SignOut extends CabGenericCommand {
+	public static class SignOut extends Command {
 	}
 
-	public static class NumRides extends CabGenericCommand {
+	public static class NumRides extends Command {
 		ActorRef<Cab.NumRidesReponse> replyTo;
 
 		public NumRides(ActorRef<NumRidesReponse> replyTo) {
@@ -70,7 +69,7 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 		}
 	}
 
-	public static class Reset extends CabGenericCommand {
+	public static class Reset extends Command {
 		ActorRef<Cab.NumRidesReponse> replyTo;
 
 		public Reset(ActorRef<NumRidesReponse> replyTo) {
@@ -79,20 +78,20 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 		}
 	}
 
-	public static class RequestRide extends CabGenericCommand {
+	public static class RequestRide extends Command {
 		ActorRef<FulfillRide.Command> replyTo;
 
-		public RequestRide(ActorRef<Command> replyTo) {
+		public RequestRide(ActorRef<FulfillRide.Command> replyTo) {
 			super();
 			this.replyTo = replyTo;
 		}
 	}
 
-	public static class RideStarted extends CabGenericCommand {
+	public static class RideStarted extends Command {
 		long rideId;
 		ActorRef<FulfillRide.Command> fRideRef;
 
-		public RideStarted(long rideId, ActorRef<Command> fRideRef) {
+		public RideStarted(long rideId, ActorRef<FulfillRide.Command> fRideRef) {
 			super();
 			this.rideId = rideId;
 			this.fRideRef = fRideRef;
@@ -100,10 +99,10 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 
 	}
 
-	public static class RideCanceled extends CabGenericCommand {
+	public static class RideCanceled extends Command {
 	}
 
-	public static class NumRidesReponse extends CabGenericCommand {
+	public static class NumRidesReponse extends Command {
 		long numRides;
 
 		public NumRidesReponse(long numRides) {
@@ -124,36 +123,50 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 
 	// Define message handlers here
 
-	private Behavior<CabGenericCommand> onRideEnded(Cab.RideEnded rideEndedCommand) {
+	private Behavior<Command> onRideEnded(Cab.RideEnded rideEndedCommand) {
 		Logger.log("Received Cab.RideEnded with rideId : " + rideEndedCommand.rideId + " for cab id : " + this.cabId);
 
-		if (this.fRide != null && rideEndedCommand.rideId == this.rideID) {
+		doRideEnded(rideEndedCommand.rideId);
+
+		return this;
+	}
+	
+	private void doRideEnded(long rideId) {
+		if (this.fRide != null && rideId == this.rideID) {
 			fRide.tell(new FulfillRide.RideEnded());
+			this.minorState = CabStates.MinorStates.AVAILABLE;
 			this.fRide = null;
 		} else {
 			Logger.logErr("No ongoing ride to end right now for cab id : " + this.cabId);
 		}
-
-		return this;
 	}
 
-	private Behavior<CabGenericCommand> onSignIn(Cab.SignIn signInCommand) {
+	private Behavior<Command> onSignIn(Cab.SignIn signInCommand) {
 		Logger.log("Received Cab.SignIn for cab id : " + this.cabId + ", initialPos: " + signInCommand.initialPos);
 
 		
 				
 		if(this.majorState == CabStates.MajorStates.SIGNED_OUT) {
+			
+			this.timeCounter++;
+			
 			// Generate random integers in range 0 to N_RIDE_SERVICE_INSTANCES
 			Random rand = new Random();
 			int randRideServiceId = rand.nextInt(Globals.N_RIDE_SERVICE_INSTANCES);
 			
-			Globals.rideService.get(randRideServiceId).tell(new RideService.CabSignsIn(this.cabId, signInCommand.initialPos));
+			Globals.rideService[randRideServiceId].tell(new RideService.CabSignsIn(this.cabId, signInCommand.initialPos, this.timeCounter));
 			
 			this.majorState = CabStates.MajorStates.SIGNED_IN;
 			this.minorState = CabStates.MinorStates.AVAILABLE;
 			this.fRide = null;
 			this.numRides = 0;
 			this.numRequestsRecvd = 0;
+			
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 			
 			Logger.log(actorName + "Successfully signed in");
 		}
@@ -164,14 +177,21 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 		return this;
 	}
 
-	private Behavior<CabGenericCommand> onSignOut(Cab.SignOut signOutCommand) {
+	private Behavior<Command> onSignOut(Cab.SignOut signOutCommand) {
 		Logger.log("Received Cab.SignOut for cab id : " + this.cabId);
-
+		doSignOut();
+		
+		return this;
+	}
+	
+	void doSignOut() {
 		if(this.majorState == CabStates.MajorStates.SIGNED_IN && this.minorState == CabStates.MinorStates.AVAILABLE) {
+			this.timeCounter++;
+			
 			Random rand = new Random();
 			int randRideServiceId = rand.nextInt(Globals.N_RIDE_SERVICE_INSTANCES);
-			
-			Globals.rideService.get(randRideServiceId).tell(new RideService.CabSignsOut(this.cabId));
+						
+			Globals.rideService[randRideServiceId].tell(new RideService.CabSignsOut(this.cabId, this.timeCounter));
 			
 			this.majorState = CabStates.MajorStates.SIGNED_OUT;
 			this.minorState = CabStates.MinorStates.NONE;
@@ -179,44 +199,43 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 			this.numRides = 0;
 			this.numRequestsRecvd = 0;
 			
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			
 			Logger.log(actorName + "Successfully signed out");
 		}
 		else {
-			Logger.logErr(actorName + "Couldn't sign out as cab is busy or already signed out");
+			Logger.logErr(actorName + "Couldn't sign out as cab is busy or already signed out, cur_state : "+this.majorState + ", " + this.minorState);
 		}
-		
-		return this;
 	}
 
-	private Behavior<CabGenericCommand> onNumRides(Cab.NumRides numRidesCommand) {
-		Logger.log("Received Cab.NumRides for cab id : " + this.cabId);
+	private Behavior<Command> onNumRides(Cab.NumRides numRidesCommand) {
+		Logger.log("Received Cab.NumRides for cab id : " + this.cabId + ", cur numRides : "+this.numRides);
 		numRidesCommand.replyTo.tell(new NumRidesReponse(this.numRides));
 		return this;
 	}
 
-	private Behavior<CabGenericCommand> onReset(Cab.Reset resetCommand) {
+	private Behavior<Command> onReset(Cab.Reset resetCommand) {
 		Logger.log("Received Cab.Reset for cab id : " + this.cabId);
 
 		if (this.fRide != null) {
-			getContext().getSelf().tell(new Cab.RideEnded(0)); // check this doubt
-			fRide = null;
+			// doRideEnded will set fRide as null
+			doRideEnded(this.rideID);
 		}
-
-		getContext().getSelf().tell(new Cab.SignOut());
-
-		try {
-			Thread.sleep(500);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		
+		if(this.majorState == CabStates.MajorStates.SIGNED_IN) {
+			doSignOut();
 		}
-
+		
 		resetCommand.replyTo.tell(new NumRidesReponse(this.numRides));
 
 		return this;
 	}
 
-	private Behavior<CabGenericCommand> onRequestRide(Cab.RequestRide requestRideCommand) {
+	private Behavior<Command> onRequestRide(Cab.RequestRide requestRideCommand) {
 		Logger.log("Received Cab.RequestRide on cab id : " + this.cabId);
 		boolean accepted = false;
 
@@ -238,7 +257,7 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 		return this;
 	}
 
-	private Behavior<CabGenericCommand> onRideStarted(Cab.RideStarted rideStartedCommand) {
+	private Behavior<Command> onRideStarted(Cab.RideStarted rideStartedCommand) {
 		Logger.log(actorName + " : Received Cab.RideStarted for ride id : " + rideStartedCommand.rideId);
 		this.minorState = CabStates.MinorStates.GIVING_RIDE;
 		this.rideID = rideStartedCommand.rideId;
@@ -248,14 +267,14 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 		return this;
 	}
 
-	private Behavior<CabGenericCommand> onRideCanceled(Cab.RideCanceled rideCanceledCommand) {
+	private Behavior<Command> onRideCanceled(Cab.RideCanceled rideCanceledCommand) {
 		Logger.log(actorName + " : Received Cab.RideCancelled");
 		this.minorState = CabStates.MinorStates.AVAILABLE;
 		return this;
 	}
 
 	@Override
-	public Receive<CabGenericCommand> createReceive() {
+	public Receive<Command> createReceive() {
 		return newReceiveBuilder()
 				.onMessage(RideEnded.class, this::onRideEnded)
 				.onMessage(SignIn.class, this::onSignIn)
@@ -265,13 +284,13 @@ public class Cab extends AbstractBehavior<Cab.CabGenericCommand> {
 				.onMessage(RequestRide.class, this::onRequestRide)
 				.onMessage(RideStarted.class, this::onRideStarted)
 				.onMessage(RideCanceled.class, this::onRideCanceled)
-				.onMessage(CabGenericCommand.class, notUsed -> {
+				.onMessage(Command.class, notUsed -> {
 					Logger.logErr("Shouldn't have received this generic command for cab-" + this.cabId);
 					return this;
 				}).build();
 	}
 
-	public static Behavior<CabGenericCommand> create(String cabID) {
+	public static Behavior<Command> create(String cabID) {
 		Logger.log("In 'create' of a new cab actor : cab-" + cabID);
 
 		return Behaviors.setup(context -> new Cab(context, cabID));
