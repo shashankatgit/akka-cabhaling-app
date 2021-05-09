@@ -116,7 +116,7 @@ public class FulfillRide extends AbstractBehavior<FulfillRide.Command> {
 		}
 		else {
 			Logger.logErr(actorName + " : Cab Id " + cabStatus.cabId +" rejected the ride");
-			if(nTriesDone < 3) {
+			if(curCabIndex < (candidateCabs.size()-1) && nTriesDone < 3) {
 				curCabIndex++;
 				Logger.log(actorName + " : Probing candidate cab no : "+ (curCabIndex+1));
 				
@@ -184,27 +184,6 @@ public class FulfillRide extends AbstractBehavior<FulfillRide.Command> {
 			replyTo.tell(new RideService.RideResponse(-1, null, -1, null));
 			return Behaviors.empty();
 		}
-		
-//		Testing Logic for finding candidate cabs
-		
-//		Random rand = new Random();
-//		for(CabStatus cabStatus : this.cabsMap.values()) {			
-//			cabStatus.initialPos = rand.nextInt(100);;			
-//		}
-//		
-//		System.out.println("\n------- Before Sorting -------");
-//		for(CabStatus cabStatus : this.cabsMap.values()) {			
-//			System.out.println("Cab id: " + cabStatus.cabId + ", initialPos: " 
-//					+  cabStatus.initialPos + ", relaDist: " + Math.abs(cabStatus.initialPos-this.sourceLoc));			
-//		}
-//		
-//		ArrayList<CabStatus> sortedCablist = sortValues(this.cabsMap, this.sourceLoc);  
-//		
-//		System.out.println("\n------- After Sorting -------");
-//		for(CabStatus cabStatus : sortedCablist) {			
-//			System.out.println("Cab id: " + cabStatus.cabId + ", initialPos: " 
-//					+  cabStatus.initialPos + ", relaDist: " + Math.abs(cabStatus.initialPos-this.sourceLoc));				
-//		}
 		
 		return this;
 	}

@@ -243,15 +243,16 @@ public class Cab extends AbstractBehavior<Cab.Command> {
 			if (this.numRequestsRecvd % 2 == 0) {
 				accepted = true;
 				this.minorState = CabStates.MinorStates.COMMITTED;
-				this.numRequestsRecvd++;
+				
 
 			} else {
-				Logger.log("Couldn't accept ride as alernate requests to be rejected, cab id : " + this.cabId);
+				Logger.log("Couldn't accept ride as alernate requests to be rejected, cab id : " + this.cabId + ", nRequests: "+this.numRequestsRecvd);
 			}
 		} else {
 			Logger.logErr("Couldn't accept ride as cab is not available, cab id : " + this.cabId);
 		}
-
+		
+		this.numRequestsRecvd++;
 		requestRideCommand.replyTo.tell(new FulfillRide.RideAcceptedInternal(accepted));
 
 		return this;

@@ -2,6 +2,8 @@ package com.example;
 
 import static org.junit.Assert.assertTrue;
 
+import java.util.Random;
+
 import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
 import akka.actor.testkit.typed.javadsl.TestProbe;
 import akka.actor.typed.ActorRef;
@@ -37,8 +39,15 @@ public class TestInterface {
 	}
 	
 	void resetAll() {
+		
 		resetAllCabs();
 		resetAllWallets();
+	}
+	
+	void startNewTest(String testName) {
+		Logger.logTestSuccess("\n\n----------Starting New Test Case - " + testName + " ----------------\n");
+		resetAll();
+		Logger.logTestSuccess("\n\n");
 	}
  
 	void walletAdd(String custId, long amountToAdd) {
@@ -68,5 +77,37 @@ public class TestInterface {
 	}
 	
 	
+	void cabSignIn(String cabId, long initialPos) {
+		Globals.cabs.get(cabId).tell(new Cab.SignIn(initialPos));
+	}
 	
+	void cabSignOut(String cabId) {
+		Globals.cabs.get(cabId).tell(new Cab.SignOut());
+	}
+	
+	RideService.RideResponse requestRide(String custId, long srcPos, long destPos) {
+		TestProbe<RideService.RideResponse> fufillRideTestProbe = testKit.createTestProbe();
+		
+		Random rand = new Random();
+		int randRideServiceId = rand.nextInt(Globals.N_RIDE_SERVICE_INSTANCES);
+		
+		Globals.rideService[randRideServiceId].tell(new RideService.RequestRide(custId, srcPos, destPos, fufillRideTestProbe.getRef()));
+		RideService.RideResponse rideResponse =  fufillRideTestProbe.receiveMessage();
+		
+		Logger.logTestSuccess("Received Response : rideId: " +rideResponse.rideId + ", cabId: "+rideResponse.cabId);
+		
+		return rideResponse;
+	}
+	
+	void rideEnded(String cabId, long rideId) {
+		Globals.cabs.get(cabId).tell(new Cab.RideEnded(rideId));
+	}
+	
+	void sleep() {
+		try {
+			Thread.sleep(500);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
 }

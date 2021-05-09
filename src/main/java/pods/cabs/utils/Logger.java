@@ -26,7 +26,7 @@ public class Logger {
 	}
 
 	public static void logErr(String logString) {
-		System.out.println(ANSI_RED + "-----------------UNEXPECTED ERROR--------------------" + ANSI_RESET);
+//		System.out.println(ANSI_RED + "-----------------UNEXPECTED ERROR--------------------" + ANSI_RESET);
 		log(ANSI_RED + logString + ANSI_RESET);
 	}
 	
