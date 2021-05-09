@@ -2,7 +2,10 @@ package com.example;
 
 import static org.junit.Assert.assertTrue;
 
+import java.io.Console;
+import java.io.IOException;
 import java.util.Random;
+import java.util.Scanner;
 
 import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
 import akka.actor.testkit.typed.javadsl.TestProbe;
@@ -16,10 +19,11 @@ import pods.cabs.utils.Logger;
 public class TestInterface {
 	
 	public TestKitJunitResource testKit;
-	
+
 	public TestInterface(TestKitJunitResource testKit) {
 		super();
 		this.testKit = testKit;
+
 	}
 	
 	void resetAllCabs() {
@@ -45,9 +49,14 @@ public class TestInterface {
 	}
 	
 	void startNewTest(String testName) {
-		Logger.logTestSuccess("\n\n----------Starting New Test Case - " + testName + " ----------------\n");
+		 
+		sleep();
+		sleep();
+		System.out.println(Logger.ANSI_PURPLE + "\n\n----------Starting New Test Case - " + testName + " ----------------\n" + Logger.ANSI_RESET); 
+		sleep();
+
 		resetAll();
-		Logger.logTestSuccess("\n\n");
+		System.out.println("\n\n");
 	}
  
 	void walletAdd(String custId, long amountToAdd) {

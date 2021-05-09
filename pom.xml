@@ -54,7 +54,7 @@
                     <arguments>
                         <argument>-classpath</argument>
                         <classpath />
-                        <argument>com.example.AkkaQuickstart</argument>
+                        <argument>com.example.AkkaCabHailingTest</argument>
                     </arguments>
                 </configuration>
             </plugin>

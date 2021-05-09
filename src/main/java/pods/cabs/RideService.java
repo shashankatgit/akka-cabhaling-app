@@ -142,8 +142,40 @@ public class RideService extends AbstractBehavior<RideService.Command> {
 			this.destinationPos = destinationPos;
 		}
 	}
+	
+	public static class DebugCabState extends RideService.Command {
+		String cabId;
+		ActorRef<RideService.DebugCabStateResponse> replyTo;
+
+		public DebugCabState(String cabId, ActorRef<RideService.DebugCabStateResponse> replyTo) {
+			super();
+			this.cabId = cabId;
+			this.replyTo = replyTo;
+		}
+	}
+	
+	public static class DebugCabStateResponse extends RideService.Command {
+		public String cabId;
+		public String majorState;
+		public String minorState;
+		
+		public DebugCabStateResponse(String cabId, String majorState, String minorState) {
+			super();
+			this.cabId = cabId;
+			this.majorState = majorState;
+			this.minorState = minorState;
+		}
+	}
 
 	// Define message handlers here
+	
+	private Behavior<RideService.Command> onDebugCabState(RideService.DebugCabState debugCabStateCommand) {
+		CabStatus cabStatus = this.cabsMap.get(debugCabStateCommand.cabId);
+	
+		debugCabStateCommand.replyTo.tell(new RideService.DebugCabStateResponse(cabStatus.cabId, cabStatus.majorState, cabStatus.minorState));
+		
+		return this;
+	}
 
 	private Behavior<RideService.Command> onCabSignsIn(RideService.CabSignsIn cabSignsInCommand) {
 		Logger.log(actorName + " : Received RideService.CabSignsIn for cabId : " + cabSignsInCommand.cabId
@@ -290,7 +322,7 @@ public class RideService extends AbstractBehavior<RideService.Command> {
 	}
 
 	private Behavior<RideService.Command> onRideEndedInternal(RideService.RideEndedInternal rideEndedInternalCommand) {
-		Logger.log(actorName + " : Received RideService.RideEndedInternal with cabId : " + rideEndedInternalCommand.cabId);
+//		Logger.log(actorName + " : Received RideService.RideEndedInternal with cabId : " + rideEndedInternalCommand.cabId);
 		
 		this.cabsMap.get(rideEndedInternalCommand.cabId).minorState = CabStates.MinorStates.AVAILABLE;
 		this.cabsMap.get(rideEndedInternalCommand.cabId).curPos = rideEndedInternalCommand.destinationPos;
@@ -310,6 +342,7 @@ public class RideService extends AbstractBehavior<RideService.Command> {
 				.onMessage(RideResponseSuccessInternal.class, this::onRideResponseSuccessInternal)
 				.onMessage(RideEnded.class, this::onRideEnded)
 				.onMessage(RideEndedInternal.class, this::onRideEndedInternal)
+				.onMessage(DebugCabState.class, this::onDebugCabState)
 				.onMessage(RideService.Command.class, notUsed -> {
 					Logger.logErr("Shouldn't have received this generic command for rideservice");
 					return this;

@@ -21,7 +21,7 @@ import org.junit.ClassRule;
 import org.junit.Test;
 
 //#definition
-public class AkkaQuickstartTest {
+public class AkkaCabHailingTest {
 
 	@ClassRule
 	public static final TestKitJunitResource testKit = new TestKitJunitResource();
@@ -57,9 +57,6 @@ public class AkkaQuickstartTest {
 		privateTestCase5();
 		privateTestCase6();
 		privateTestCase7();
-		privateTestCase8();
-		privateTestCase9();
-		privateTestCase10();
 
 	}
 
@@ -73,12 +70,12 @@ public class AkkaQuickstartTest {
 		// better to send them to different RideService actors to achieve
 		// load balancing.
 
-		try {
-			Thread.sleep(500);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+//		try {
+//			Thread.sleep(500);
+//		} catch (InterruptedException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
 
 		TestProbe<RideService.RideResponse> probe = testKit.createTestProbe();
 		rideService.tell(new RideService.RequestRide("201", 10, 100, probe.ref()));
@@ -87,8 +84,13 @@ public class AkkaQuickstartTest {
 		// There is also an option to block for a bounded period of time
 		// and give up after timeout.
 
-		assertTrue(resp.rideId != -1);
-		cab101.tell(new Cab.RideEnded(resp.rideId));
+		if(resp.rideId == -1) {
+			Logger.logTestFail("Couldn't get a ride!");
+		}
+		else {
+			cab101.tell(new Cab.RideEnded(resp.rideId));
+			Logger.logTestSuccess("Got a ride and ended it!");
+		}
 	}
 
 	// Just checking all functionality
@@ -276,7 +278,8 @@ public class AkkaQuickstartTest {
 		if (responseMsg.rideId >= 0) {
 			acceptedRides++;
 		}
-
+		
+		// since there are only 3 cabs, this ride request should fail
 		responseMsg = testInterface.requestRide("201", 10, 20);
 		if (responseMsg.rideId >= 0) {
 			acceptedRides++;
@@ -285,24 +288,73 @@ public class AkkaQuickstartTest {
 		Logger.logTestSuccess("Accepted Rides : " + acceptedRides);
 		assertTrue(acceptedRides <= 3);
 	}
-
+	
+	// Demonstrating an improvisation for faster consistency in cab maps.
+	// A ride request which would have been rejected in original setting despite
+	// a cab being available is handled here. Such a case wouldn't happen in our
+	// setting as we are informing the RideService about cabs which have started
+	// giving rides.
 	public void privateTestCase6() {
+		testInterface.startNewTest("Test 6 : Demonstrating improvisation on faster cab state convergence in RideService instances");
 		
-	}
+		testInterface.cabSignIn("101", 10);
+		testInterface.cabSignIn("102", 20);
+		testInterface.cabSignIn("103", 30);
+		testInterface.cabSignIn("104", 40);
+		
+		RideService.RideResponse responseMsg;
+		
+		int acceptedRides = 0;
+		
+		responseMsg = testInterface.requestRide("201", 5, 100);
+		
+		if (responseMsg.rideId >= 0) {
+			acceptedRides++;
+		}
 
+		responseMsg = testInterface.requestRide("201", 0, 20);
+		if (responseMsg.rideId >= 0) {
+			acceptedRides++;
+		}
+
+		responseMsg = testInterface.requestRide("202", 0, 20);
+		if (responseMsg.rideId >= 0) {
+			acceptedRides++;
+		}
+
+		responseMsg = testInterface.requestRide("203", 0, 20);
+		if (responseMsg.rideId >= 0) {
+			acceptedRides++;
+		}
+		
+		
+		Logger.logTestSuccess("Accepted Rides : " + acceptedRides);
+		assertTrue(acceptedRides == 4);
+	}
+	
 	public void privateTestCase7() {
-
-	}
-
-	public void privateTestCase8() {
-
-	}
-
-	public void privateTestCase9() {
-
-	}
-
-	public void privateTestCase10() {
-
+		testInterface.startNewTest("Test 7 : Demonstrating that causal order is maintained across state updates in ride service through timestamps");
+		
+		testInterface.cabSignIn("101", 10);
+		testInterface.cabSignOut("101");
+		testInterface.cabSignIn("101", 10);
+		testInterface.cabSignOut("101");
+		
+		Logger.logTestSuccess("Waiting for all ride service instances to converge");
+		try {
+			Thread.sleep(5000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		TestProbe<RideService.DebugCabStateResponse> testProbe = testKit.createTestProbe();
+		RideService.DebugCabStateResponse debugResponse;
+		for(int i=0 ; i<10; i++) {
+			Globals.rideService[i].tell(new RideService.DebugCabState("101", testProbe.getRef()));
+			debugResponse = testProbe.receiveMessage();
+			Logger.logTestSuccess("For RideService instance "+ i + ", received cab state : "+debugResponse.majorState+ ", "+debugResponse.minorState);
+		}
+		
 	}
 }
